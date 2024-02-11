@@ -58,19 +58,21 @@ def serialize_live_stream(stream_url: str, video_duration: str, total_seconds: i
 
 
 def upload_videos_to_video_indexer(location, account_id, subscription_id, api_version, account_name, total_seconds,
-                                   resource_group_name, azure_tenant_id, video_folder_path, num_iterations):
+                                   resource_group_name, azure_tenant_id, video_folder_path, num_iterations,
+                                   language='auto'):
     """
     This function uploads the video to the Azure Video Indexer.
-    :param location:
-    :param account_id:
-    :param subscription_id:
-    :param api_version:
-    :param account_name:
-    :param resource_group_name:
-    :param azure_tenant_id:
-    :param video_folder_path:
-    :param num_iterations:
-    :return:
+    :param location: The region of the account,
+    :param account_id: The account ID,
+    :param subscription_id: The subscription ID,
+    :param api_version: The version of the API,
+    :param account_name: The name of the account,
+    :param total_seconds: The total number of seconds is calculated by converting hours to seconds (hours * 3600),
+    :param resource_group_name: The name of the resource group,
+    :param azure_tenant_id: The Azure tenant ID,
+    :param video_folder_path: The path to the video folder,
+    :param num_iterations: The number of iterations,
+    :return: None
     """
     vi_wrapper = VideoIndexerWrapper(location=location, account_id=account_id, subscription_id=subscription_id,
                                      api_version=api_version, account_name=account_name,
@@ -91,7 +93,7 @@ def upload_videos_to_video_indexer(location, account_id, subscription_id, api_ve
             # upload to video indexer
             video_path = os.path.join(video_folder_path, video_ts)
             print(f"Uploading {video_path} to the Azure Video Indexer.")
-            response = vi_wrapper.upload_video(video_path)
+            response = vi_wrapper.upload_video(video_path, language=language)
 
             # Print the response
             print(response)

@@ -20,7 +20,8 @@ def main():
     STREAMURL = "https://www.youtube.com/watch?v=bNyUyrR0PHo"
     VIDEO_DURATION = "00:00:05"
     output_folder = config['main']['workingDir']
-    NUM_ITER = 2
+    NUM_ITER = 10 ** 7
+    config['vi']['language'] = 'Arabic'
     run_download_and_upload(STREAMURL, VIDEO_DURATION, output_folder, NUM_ITER, config)
     print("done")
 

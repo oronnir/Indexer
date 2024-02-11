@@ -260,9 +260,19 @@ class VideoIndexerWrapper:
                 print(f'Failed to download thumbnail {thumbnail_id} for video {video_id}')
                 continue
 
-    def upload_video(self, video_path, privacy='Private', priority='Low', language='auto', indexing_preset='Default', streaming_preset='Default', send_success_email='false', use_managed_identity_to_download_video='false', prevent_duplicates='false'):
+    def upload_video(self, video_path, privacy='Private', priority='Low', language='auto', indexing_preset='Default',
+                     streaming_preset='Default', send_success_email='false',
+                     use_managed_identity_to_download_video='false', prevent_duplicates='false'):
         """
         Upload the video to the Azure Video Indexer
+        :param prevent_duplicates:
+        :param use_managed_identity_to_download_video:
+        :param send_success_email:
+        :param streaming_preset:
+        :param indexing_preset:
+        :param language:
+        :param priority:
+        :param privacy:
         :param video_path:
         :return:
         """
