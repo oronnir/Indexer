@@ -2,3 +2,4 @@ tqdm
 azure-identity
 joblib
 streamlink
+aiohttp
