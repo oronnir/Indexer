@@ -7,12 +7,19 @@ import os
 from main import load_config
 from azure_ai_search_wrapper import AzureAISearchWrapper
 from video_indexer_wrapper import VideoIndexerWrapper
+import torch
+from PIL import Image
+import clip
+from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
 
 
 class CoEmbeddingsIndexer:
     def __init__(self, config):
         self.video_indexer_wrapper = VideoIndexerWrapper(**config['vi'])
         self.azure_ai_search_wrapper = AzureAISearchWrapper()
+        # Load the CLIP model
+        self.model, self.preprocess = clip.load('ViT-B/32', device='cuda' if torch.cuda.is_available() else 'cpu')
+
 
     def upload_texts_to_azure_ai_search(self, prompt_content_json_path, video_id):
         prompt_content_json = json.load(open(prompt_content_json_path))
@@ -31,6 +38,10 @@ class CoEmbeddingsIndexer:
 
         # upload images to Azure AI Search
         images = [os.path.join(temp_directory, image) for image in os.listdir(temp_directory)]
+
+        # embed images with CLIP
+        embeddings_dicts = [dict(video_id=video_id, clip_embeddings=self.clip_encode_image(image)) for image in range(len(images))]
+
         item_index = dict(video_id=video_id, )
         self.azure_ai_search_wrapper.upload_images(images, item_index, 'keyframes')
 
@@ -79,7 +90,28 @@ class CoEmbeddingsIndexer:
 
         stop = 1
 
+    def clip_encode_image(self, image_path):
+        """
+        Embed the image with CLIP.
+        :param image_path: a path to the image.
+        :return: the image's CLIP embeddings.
+        """
 
+        # Load your image
+        image = Image.open(image_path)
+
+        # Preprocess the image
+        preprocessed_image = self.preprocess(image).unsqueeze(0).to('cuda')
+
+        # Calculate image features
+        with torch.no_grad():
+            image_features = self.model.encode_image(preprocessed_image)
+
+        # image_features now contains the embedded representation of the image
+        return image_features.tolist()
 
 if __name__ == '__main__':
-    main_coembeddings_indexing()
+    config_path = r"C:\VI\Sandbox\config.json"
+    config = load_config(config_path)
+    coembedder = CoEmbeddingsIndexer(config)
+    stop = 1

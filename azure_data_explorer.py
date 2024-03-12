@@ -1,7 +1,8 @@
 from azure.kusto.data import KustoClient, KustoConnectionStringBuilder
 from azure.kusto.data.exceptions import KustoServiceError
-from azure.kusto.ingest import KustoIngestClient, IngestionProperties, DataFormat, BlobDescriptor
+from azure.kusto.ingest import QueuedIngestClient, IngestionProperties, BlobDescriptor
 from azure.identity import DefaultAzureCredential
+from azure.kusto.data.data_format import DataFormat
 
 
 class AzureDataExplorerClient:
@@ -10,14 +11,14 @@ class AzureDataExplorerClient:
         self.credential = DefaultAzureCredential()
 
         # Initializes the connection string builder for querying
-        self.kcsb_query = KustoConnectionStringBuilder.with_aad_device_authentication(cluster_url, self.credential)
+        self.kcsb_query = KustoConnectionStringBuilder.with_az_cli_authentication(cluster_url)
         self.kcsb_query.authority_id = "common"  # Replace 'common' with your Azure tenant ID if necessary
         self.query_client = KustoClient(self.kcsb_query)
 
         # Initializes the connection string builder for ingesting
         ingest_url = cluster_url.replace("https://", "https://ingest-")
-        self.kcsb_ingest = KustoConnectionStringBuilder.with_aad_device_authentication(ingest_url, self.credential)
-        self.ingest_client = KustoIngestClient(self.kcsb_ingest)
+        self.kcsb_ingest = KustoConnectionStringBuilder.with_aad_device_authentication(ingest_url)
+        self.ingest_client = QueuedIngestClient(self.kcsb_ingest)
 
         self.database_name = database_name
 
@@ -49,9 +50,7 @@ class AzureDataExplorerClient:
 
         try:
             blob_descriptor = BlobDescriptor(csv_file_path)
-            self.ingest_client.ingest_from_blob(blob_descriptor, ingestion_properties=ingestion_properties)
+            self.ingest_client.ingest_from_blob(blob_descriptor, ingestion_properties)
             print("Ingestion request submitted.")
         except Exception as e:
             print(f"Error during ingestion: {e}")
-
-# Example usage remains the same

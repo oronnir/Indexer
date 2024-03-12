@@ -67,11 +67,11 @@ class VideoIndexerWrapper:
         self.get_azure_access_token()
         self.get_vi_access_token()
 
-    def list_videos_single_page(self, next_page_skip=None) -> dict:
+    def list_videos_single_page(self, next_page_skip) -> dict:
         # list videos
         videos = []
         try:
-            url = f"https://api.videoindexer.ai/{self.location}/Accounts/{self.account_id}/Videos?accessToken={self.vi_access_token}"
+            url = f"https://api.videoindexer.ai/{self.location}/Accounts/{self.account_id}/Videos?pageSize=200&accessToken={self.vi_access_token}"
             if next_page_skip is not None:
                 url += f"&skip={next_page_skip}"
 
@@ -121,14 +121,14 @@ class VideoIndexerWrapper:
         list all indexed videos and download their thumbnails
         :return:
         """
-        videos = self.list_videos_single_page()
-        all_indexed_videos = [videos]
+        videos = self.list_videos_single_page(0)
+        all_indexed_videos = videos['results']
         while videos is not None and \
                 'nextPage' in videos and \
                 'done' in videos['nextPage'] and \
                 videos['nextPage']['done'] is False:
-            videos = self.list_videos_single_page()
-            all_indexed_videos.append(videos)
+            videos = self.list_videos_single_page(len(all_indexed_videos))
+            all_indexed_videos+=videos['results']
         return all_indexed_videos
 
     def get_n_unknown_face_ids(self, n_unknown_face_ids, working_dir):
