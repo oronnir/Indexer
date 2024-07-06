@@ -1,32 +1,29 @@
-import json
-import os
-
+from co_embedding_indexer import run_azure_search_indexing, run_query_search
 from video_streamer import run_download_and_upload
+from config_manager import load_config
 
 
-def load_config(config_path=None):
-    if config_path is None:
-        config_path = os.path.join(os.path.dirname(__file__), '', 'config.json')
-
-    if os.path.isfile(config_path):
-        with open(config_path) as data_file:
-            data = json.load(data_file)
-            return data
-
-
-def main():
+def main_livestream_indexing():
     # load configuration
     config = load_config()
 
     # Azure Video Indexer parameters
-    STREAMURL = "https://www.youtube.com/watch?v=bNyUyrR0PHo"
-    VIDEO_DURATION = "00:00:05"
+    stream = "https://www.youtube.com/watch?v=bNyUyrR0PHo"
+    video_duration = "00:00:05"
     output_folder = config['main']['workingDir']
-    NUM_ITER = 10 ** 7
+    num_iter = 10 ** 7
     config['vi']['language'] = 'Arabic'
-    run_download_and_upload(STREAMURL, VIDEO_DURATION, output_folder, NUM_ITER, config)
+    run_download_and_upload(stream, video_duration, output_folder, num_iter, config)
+    print("done")
+
+
+def main_semantic_search():
+    # load configuration
+    config = load_config()
+    run_azure_search_indexing(config)
+    run_query_search(config, "Red car")
     print("done")
 
 
 if __name__ == '__main__':
-    main()
+    main_semantic_search()

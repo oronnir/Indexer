@@ -4,22 +4,18 @@ Assuming the account has indexed videos, generate PromptContent and download key
 import json
 import os
 
-from main import load_config
+from config_manager import load_config
 from azure_ai_search_wrapper import AzureAISearchWrapper
 from video_indexer_wrapper import VideoIndexerWrapper
-import torch
-from PIL import Image
-import clip
-from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
 
 
 class CoEmbeddingsIndexer:
-    def __init__(self, config):
+    """
+    This class is used to index the keyframes of the videos with CLIP embeddings and upload them to Azure AI Search.
+    """
+    def __init__(self, config, search_k: int = 10):
         self.video_indexer_wrapper = VideoIndexerWrapper(**config['vi'])
-        self.azure_ai_search_wrapper = AzureAISearchWrapper()
-        # Load the CLIP model
-        self.model, self.preprocess = clip.load('ViT-B/32', device='cuda' if torch.cuda.is_available() else 'cpu')
-
+        self.azure_ai_search_wrapper = AzureAISearchWrapper(**config['ais'])
 
     def upload_texts_to_azure_ai_search(self, prompt_content_json_path, video_id):
         prompt_content_json = json.load(open(prompt_content_json_path))
@@ -40,12 +36,12 @@ class CoEmbeddingsIndexer:
         images = [os.path.join(temp_directory, image) for image in os.listdir(temp_directory)]
 
         # embed images with CLIP
-        embeddings_dicts = [dict(video_id=video_id, clip_embeddings=self.clip_encode_image(image)) for image in range(len(images))]
+        # embeddings_dicts = [dict(video_id=video_id, clip_embeddings=self.clip_encode_image(image)) for image in range(len(images))]
 
-        item_index = dict(video_id=video_id, )
+        item_index = dict(video_id=video_id, start_time=0, end_time=0, )
         self.azure_ai_search_wrapper.upload_images(images, item_index, 'keyframes')
 
-    def main_coembeddings_indexing(self):
+    def main_co_embeddings_indexing(self):
         # load configuration
         config = load_config()
         working_directory = config['main']['workingDir']
@@ -58,7 +54,7 @@ class CoEmbeddingsIndexer:
 
         # generate PromptContent
         for indexed_video in indexed_videos:
-            self.video_indexer_wrapper.create_prompt_content(indexed_video)
+            self.video_indexer_wrapper.create_prompt_content(indexed_video['id'])
 
         # get PromptContent
         prompts_failures = []
@@ -87,31 +83,70 @@ class CoEmbeddingsIndexer:
             if file.endswith('.zip'):
                 self.index_image_zip(file, video_id, working_directory, azure_ai_search_wrapper)
 
+    # def clip_encode_image(self, image_path):
+    #     """
+    #     Embed the image with CLIP.
+    #     :param image_path: a path to the image.
+    #     :return: the image's CLIP embeddings.
+    #     """
+    #
+    #     # Load your image
+    #     image = Image.open(image_path)
+    #
+    #     # Preprocess the image
+    #     preprocessed_image = self.preprocess(image).unsqueeze(0).to('cuda')
+    #
+    #     # Calculate image features
+    #     with torch.no_grad():
+    #         image_features = self.model.encode_image(preprocessed_image)
+    #
+    #     # image_features now contains the embedded representation of the image
+    #     return image_features.tolist()
 
-        stop = 1
-
-    def clip_encode_image(self, image_path):
+    def fuze_search_results(self, search_results_kf, search_results_pc):
         """
-        Embed the image with CLIP.
-        :param image_path: a path to the image.
-        :return: the image's CLIP embeddings.
+        Fuse the search results from keyframes and prompt content by counting the number of occurrences and updating the
+         relevance scores.
+        :param search_results_kf:
+        :param search_results_pc:
+        :return: a unified list of search results.
         """
+        # Initialize the fused search results
+        fused_search_results = []
 
-        # Load your image
-        image = Image.open(image_path)
+        # Count the number of occurrences of each video in the search results
+        video_occurrences = {}
+        for video in search_results_kf + search_results_pc:
+            video_id = video['video_id']
+            if video_id in video_occurrences:
+                video_occurrences[video_id] += 1
+            else:
+                video_occurrences[video_id] = 1
 
-        # Preprocess the image
-        preprocessed_image = self.preprocess(image).unsqueeze(0).to('cuda')
+        # Update the relevance scores of the search results
+        for video in search_results_kf + search_results_pc:
+            video_id = video['video_id']
+            video['relevance_score'] = video['relevance_score'] * video_occurrences[video_id]
+            fused_search_results.append(video)
 
-        # Calculate image features
-        with torch.no_grad():
-            image_features = self.model.encode_image(preprocessed_image)
+        # Sort the fused search results by relevance score
+        fused_search_results = sorted(fused_search_results, key=lambda x: x['relevance_score'], reverse=True)
 
-        # image_features now contains the embedded representation of the image
-        return image_features.tolist()
+        # return the top k search results
+        return fused_search_results[:self.search_k]
 
-if __name__ == '__main__':
-    config_path = r"C:\VI\Sandbox\config.json"
-    config = load_config(config_path)
-    coembedder = CoEmbeddingsIndexer(config)
-    stop = 1
+
+def run_azure_search_indexing(config):
+    co_embedder = CoEmbeddingsIndexer(config)
+    co_embedder.main_co_embeddings_indexing()
+    print("done indexing...")
+
+
+def run_query_search(config, search_query):
+    co_embedder = CoEmbeddingsIndexer(config)
+
+    # query Azure AI Search
+    search_results_kf = co_embedder.azure_ai_search_wrapper.search(search_query, "keyframes")
+    print("Search results key frames", search_results_kf)
+    search_results_pc = co_embedder.azure_ai_search_wrapper.search(search_query, "prompt_content")
+    print("Search results prompt content", search_results_pc)

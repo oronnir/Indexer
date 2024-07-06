@@ -313,26 +313,25 @@ class VideoIndexerWrapper:
         failed_video_ids = []
 
         # download artifacts
-        for page in indexed_videos:
-            for video in page['results']:
-                video_id = video['id']
-                artifacts_response = self.get_video_artifacts(video_id, 'KeyframesThumbnails')
-                if artifacts_response.status_code != 200:
-                    print(f'Error: {artifacts_response.status_code}')
-                    continue
-                kf_url = artifacts_response.json()
+        for video in indexed_videos:
+            video_id = video['id']
+            artifacts_response = self.get_video_artifacts(video_id, 'KeyframesThumbnails')
+            if artifacts_response.status_code != 200:
+                print(f'Error: {artifacts_response.status_code}')
+                continue
+            kf_url = artifacts_response.json()
 
-                # download keyframes zip from url to working directory
-                zip_file_path = os.path.join(working_directory, f'{video_id}.zip')
-                urllib.request.urlretrieve(kf_url, zip_file_path)
+            # download keyframes zip from url to working directory
+            zip_file_path = os.path.join(working_directory, f'{video_id}.zip')
+            urllib.request.urlretrieve(kf_url, zip_file_path)
 
-                if os.path.exists(zip_file_path):
-                    print(f'Downloaded keyframes zip for video {video_id} to {zip_file_path}')
-                    kf_video_id_to_zip[video_id] = zip_file_path
-                else:
-                    print(f'Failed to download keyframes zip for video {video_id} to {zip_file_path}')
-                    failed_video_ids.append(video_id)
-                    continue
+            if os.path.exists(zip_file_path):
+                print(f'Downloaded keyframes zip for video {video_id} to {zip_file_path}')
+                kf_video_id_to_zip[video_id] = zip_file_path
+            else:
+                print(f'Failed to download keyframes zip for video {video_id} to {zip_file_path}')
+                failed_video_ids.append(video_id)
+                continue
         print(f'Done downloading all keyframes for {len(kf_video_id_to_zip)} videos. Failed to download keyframes for {len(failed_video_ids)} videos')
         return kf_video_id_to_zip, failed_video_ids
 
@@ -340,7 +339,7 @@ class VideoIndexerWrapper:
         import urllib.request
 
         try:
-            url = f"https://api.videoindexer.ai/eastus/Accounts/{self.account_id}/Videos/{video_id}/PromptContent"
+            url = f"https://api.videoindexer.ai/{self.location}/Accounts/{self.account_id}/Videos/{video_id}/PromptContent?modelName=Llama2&promptStyle=Full&accessToken={self.vi_access_token}"
 
             hdr = {
                 # Request headers
@@ -366,7 +365,7 @@ class VideoIndexerWrapper:
         import urllib.request
 
         try:
-            url = f"https://api.videoindexer.ai/trial/Accounts/{self.account_id}/Videos/{video_id}/PromptContent?accessToken={self.vi_access_token}"
+            url = f"https://api.videoindexer.ai/{self.location}/Accounts/{self.account_id}/Videos/{video_id}/PromptContent?accessToken={self.vi_access_token}"
 
             hdr = {
                 # Request headers
